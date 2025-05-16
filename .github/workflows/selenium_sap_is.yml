@@ -35,7 +35,10 @@ jobs:
 
       - name: Output Cookies
         id: output-cookies
-        run: echo "::set-output name=extracted_cookies::$(java -cp ".:libs/*:." Main | grep 'Cookies: ' | cut -d ' ' -f 2-)"
+        run: |
+          cookie_output=$(java -cp ".:libs/*:." Main | grep 'Cookies: ')
+          extracted_cookies=$(echo "$cookie_output" | cut -d ' ' -f 2-)
+          echo "::set-output name=extracted_cookies::$extracted_cookies"
 
       - name: Send Cookies to SAP IS (Example - Adapt to your SAP IS API)
         if: ${{ job.status == 'success' }}
