@@ -1,10 +1,11 @@
+// This is feting Cookies headless crome but i think it is also not supported in SAP IS 
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.chrome.ChromeDriver;
+import org.openqa.selenium.chrome.ChromeOptions;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 import org.openqa.selenium.Cookie;
-
 
 import java.time.Duration;
 import java.util.Set;
@@ -15,7 +16,13 @@ public class Main {
         // Set path to chromedriver
         System.setProperty("webdriver.chrome.driver", "chromedriver.exe");
 
-        WebDriver driver = new ChromeDriver();
+        // Enable headless mode
+        ChromeOptions options = new ChromeOptions();
+        options.addArguments("--headless"); // No UI
+        options.addArguments("--disable-gpu"); // Optional: helps on Windows
+        options.addArguments("--window-size=1920,1080"); // Optional: some sites check for screen size
+
+        WebDriver driver = new ChromeDriver(options);
         WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(20));
 
         try {
@@ -36,17 +43,11 @@ public class Main {
             // Click continue after password
             wait.until(ExpectedConditions.elementToBeClickable(By.id("logOnFormSubmit"))).click();
 
-            // Optional: wait or verify login success here
-            Thread.sleep(5000);
-
-
-                        // Wait 7 seconds like in your Python code
+            // Wait for the page to load completely
             Thread.sleep(7000);
 
             // Get cookies
             Set<Cookie> cookies = driver.manage().getCookies();
-
-            // Convert cookies to a single string "name=value; name2=value2; ..."
             String cookieHeader = cookies.stream()
                     .map(cookie -> cookie.getName() + "=" + cookie.getValue())
                     .collect(Collectors.joining("; "));
