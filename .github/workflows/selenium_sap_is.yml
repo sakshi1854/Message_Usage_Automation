@@ -1,50 +1,77 @@
-name: Run Selenium on SAP IS
+name: Fetch Cookies with Selenium
 
 on:
-  schedule:
-    - cron: '0 4 * * *'  # Runs every day at 4 AM UTC (adjust as needed)
-  workflow_dispatch:     # Allows manual triggering from the GitHub UI
+  workflow_dispatch: # Allows manual triggering from GitHub UI
+  # schedule:
+  #   - cron: '0 * * * *' # Example: Run every hour at minute 0 (adjust frequency as needed)
 
 jobs:
-  run-selenium-tests:
-    runs-on: ubuntu-latest
+  fetch-cookies:
+    runs-on: ubuntu-latest # Use the latest Ubuntu Linux runner
 
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v3
+    - name: Checkout Repository
+      uses: actions/checkout@v4 # Action to get your code from the repository
 
-      - name: Set up Java
-        uses: actions/setup-java@v3
-        with:
-          java-version: '11' # Or your preferred Java version
-          distribution: 'temurin' # Recommended OpenJDK distribution
+    - name: Set up Java
+      uses: actions/setup-java@v4
+      with:
+        java-version: '11' # Match this to the `maven.compiler.target` in your pom.xml
+        distribution: 'temurin'
+        cache: 'maven' # Caches Maven dependencies for faster builds
 
-      - name: Set up Chrome
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y google-chrome-stable
-          mkdir -p /usr/local/bin
-          curl -sSLo /usr/local/bin/chromedriver "https://chromedriver.storage.googleapis.com/$(curl -sS chromedriver.storage.googleapis.com/LATEST_RELEASE_$(google-chrome --version | awk '{print $3}'))/chromedriver_linux64.zip"
-          unzip /usr/local/bin/chromedriver_linux64.zip -d /usr/local/bin
-          chmod +x /usr/local/bin/chromedriver
-          echo "CHROMEDRIVER_PATH=/usr/local/bin/chromedriver" >> $GITHUB_ENV
+    - name: Install Google Chrome and ChromeDriver
+      # This action automatically installs the correct Linux Chrome and Chromedriver
+      # and ensures chromedriver is on the PATH for Selenium.
+      uses: browser-actions/setup-chrome@latest
+      with:
+        chrome-version: 'stable' # Or a specific version like '120.0.6099.109'
 
-      - name: Run Selenium Tests
-        run: |
-          java -cp ".:libs/*:." Main
+    - name: Run Selenium Script to Fetch Cookies
+      id: run_selenium # Assign an ID to this step to reference its output
+      env:
+        # Pass sensitive data as environment variables to your Java code
+        TARGET_URL: ${{ secrets.TARGET_URL }}
+        LOGIN_USERNAME: ${{ secrets.LOGIN_USERNAME }}
+        LOGIN_PASSWORD: ${{ secrets.LOGIN_PASSWORD }}
+      run: |
+        echo "Building and running Maven project..."
+        # Maven command to clean, compile, and execute your Main class
+        # We capture stdout (where your JSON cookies are printed) using awk
+        COOKIES_JSON=$(mvn -B clean compile exec:java 2>&1 | awk '/^\{.*\}$/{print; exit}')
 
-      - name: Output Cookies
-        id: output-cookies
-        run: |
-          cookie_output=$(java -cp ".:libs/*:." Main | grep 'Cookies: ')
-          extracted_cookies=$(echo "$cookie_output" | cut -d ' ' -f 2-)
-          echo "::set-output name=extracted_cookies::$extracted_cookies"
+        # Check if COOKIES_JSON was empty (meaning the Java script didn't output JSON or failed)
+        if [ -z "$COOKIES_JSON" ]; then
+          echo "ERROR: No JSON output captured from Selenium script. Review previous logs for Java errors."
+          exit 1 # Fail this step if no JSON was captured
+        fi
 
-      - name: Send Cookies to SAP IS (Example - Adapt to your SAP IS API)
-        if: ${{ job.status == 'success' }}
-        run: |
-          echo "Extracted Cookies: ${{ steps.output-cookies.outputs.extracted_cookies }}"
-          # Replace with your actual SAP IS API endpoint and authentication details
-          # curl -X POST -H "Content-Type: application/json" -d '{"cookies": "${{ steps.output-cookies.outputs.extracted_cookies }}"}' "YOUR_SAP_IS_API_ENDPOINT"
-        env:
-          SAP_IS_API_TOKEN: ${{ secrets.SAP_IS_API_TOKEN }} # Store sensitive tokens as GitHub secrets
+        # Set the captured JSON as an output for subsequent steps to use
+        echo "::set-output name=cookies::${COOKIES_JSON}"
+        echo "Selenium script executed. Captured cookies."
+
+    - name: Send Cookies to SAP Integration Suite
+      # This step will only run if the previous 'run_selenium' step succeeded
+      # and if the 'cookies' output from that step is not empty.
+      if: success() && steps.run_selenium.outputs.cookies != ''
+      run: |
+        # Retrieve SAP IS endpoint and credentials from GitHub Secrets
+        SAP_IS_ENDPOINT="${{ secrets.SAP_IS_ENDPOINT }}"
+        SAP_IS_USERNAME="${{ secrets.SAP_IS_USERNAME }}"
+        SAP_IS_PASSWORD="${{ secrets.SAP_IS_PASSWORD }}"
+
+        # Get the cookies payload captured from the previous step
+        COOKIES_PAYLOAD="${{ steps.run_selenium.outputs.cookies }}"
+
+        echo "Sending cookies to SAP Integration Suite endpoint: ${SAP_IS_ENDPOINT}"
+        curl -X POST \
+             -H "Content-Type: application/json" \
+             -u "${SAP_IS_USERNAME}:${SAP_IS_PASSWORD}" \
+             --data-raw "${COOKIES_PAYLOAD}" \
+             "${SAP_IS_ENDPOINT}"
+
+        echo "Successfully sent cookies to SAP Integration Suite."
+      env: # Ensure secrets are available to this step's run environment as well
+        SAP_IS_ENDPOINT: ${{ secrets.SAP_IS_ENDPOINT }}
+        SAP_IS_USERNAME: ${{ secrets.SAP_IS_USERNAME }}
+        SAP_IS_PASSWORD: ${{ secrets.SAP_IS_PASSWORD }}
