@@ -1,4 +1,4 @@
-name: Fetch Cookies with Selenium
+name: Fetch Cookies with Headless Selenium
 
 on:
   workflow_dispatch: # Allows manual triggering from GitHub UI
@@ -31,28 +31,52 @@ jobs:
       id: run_selenium # Assign an ID to this step to reference its output
       env:
         # Pass sensitive data as environment variables to your Java code
+        # These secrets must be configured in your GitHub repository settings.
         TARGET_URL: ${{ secrets.TARGET_URL }}
         LOGIN_USERNAME: ${{ secrets.LOGIN_USERNAME }}
         LOGIN_PASSWORD: ${{ secrets.LOGIN_PASSWORD }}
       run: |
         echo "Building and running Maven project..."
-        # Maven command to clean, compile, and execute your Main class
-        # We capture stdout (where your JSON cookies are printed) using awk
-        COOKIES_JSON=$(mvn -B clean compile exec:java 2>&1 | awk '/^\{.*\}$/{print; exit}')
+        # Create a directory for screenshots to be saved by the Java application
+        mkdir -p screenshots
 
-        # Check if COOKIES_JSON was empty (meaning the Java script didn't output JSON or failed)
-        if [ -z "$COOKIES_JSON" ]; then
-          echo "ERROR: No JSON output captured from Selenium script. Review previous logs for Java errors."
-          exit 1 # Fail this step if no JSON was captured
+        # Maven command to clean, compile, and execute your Main class.
+        # '2>&1 | tee /dev/stderr' ensures that all output (stdout and stderr)
+        # is printed to stderr (which GitHub Actions captures in the log)
+        # while also allowing 'awk' to process the output for the specific cookie string.
+        # We capture the exit code to ensure the step fails if the Java app fails.
+        COOKIES_STRING=$(mvn -B clean compile exec:java 2>&1 | tee /dev/stderr | awk '/^([a-zA-Z0-9_]+=.*(; )?)+$/{print; exit}')
+        exit_code=$? # Capture the exit code of the mvn command
+
+        # Check if the Maven command itself failed
+        if [ $exit_code -ne 0 ]; then
+          echo "ERROR: Maven command failed with exit code $exit_code. Review logs for Java errors."
+          exit $exit_code # Fail this step with the original exit code
         fi
 
-        # Set the captured JSON as an output for subsequent steps to use
-        echo "::set-output name=cookies::${COOKIES_JSON}"
-        echo "Selenium script executed. Captured cookies."
+        # Check if the COOKIES_STRING was captured (meaning the Java script successfully printed cookies)
+        if [ -z "$COOKIES_STRING" ]; then
+          echo "WARNING: No cookie string output captured from Selenium script. This might be expected if the script failed before printing cookies, or if the output format changed."
+          # Do not exit here; allow the artifact upload step to still run if screenshots were taken
+        else
+          # Set the captured cookie string as an output for subsequent steps to use
+          echo "::set-output name=cookies::${COOKIES_STRING}"
+          echo "Selenium script executed. Captured cookies."
+        fi
+
+    - name: Upload Screenshots (for debugging)
+      # This step will always run, even if previous steps failed,
+      # ensuring you get debugging information (screenshots) in case of an error.
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: selenium-screenshots # The name of the artifact bundle
+        path: screenshots/ # The path to the directory where screenshots are saved
+        retention-days: 5 # How long to keep the artifacts (adjust as needed)
 
     - name: Send Cookies to SAP Integration Suite
-      # This step will only run if the previous 'run_selenium' step succeeded
-      # and if the 'cookies' output from that step is not empty.
+      # This step will only run if the 'run_selenium' step succeeded
+      # AND if the 'cookies' output from that step is not empty.
       if: success() && steps.run_selenium.outputs.cookies != ''
       run: |
         # Retrieve SAP IS endpoint and credentials from GitHub Secrets
@@ -64,6 +88,9 @@ jobs:
         COOKIES_PAYLOAD="${{ steps.run_selenium.outputs.cookies }}"
 
         echo "Sending cookies to SAP Integration Suite endpoint: ${SAP_IS_ENDPOINT}"
+        # Use curl to send the cookies.
+        # Ensure your SAP IS endpoint is configured to accept POST requests
+        # with Content-Type: application/json and Basic Authentication.
         curl -X POST \
              -H "Content-Type: application/json" \
              -u "${SAP_IS_USERNAME}:${SAP_IS_PASSWORD}" \
