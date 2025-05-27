@@ -1,104 +1,224 @@
-name: Fetch Cookies with Headless Selenium
+# name: Fetch Cookies with Headless Selenium
+
+# on:
+#   workflow_dispatch: # Allows manual triggering from GitHub UI
+#   # schedule:
+#   #   - cron: '0 * * * *' # Example: Run every hour at minute 0 (adjust frequency as needed)
+
+# jobs:
+#   fetch-cookies:
+#     runs-on: ubuntu-latest # Use the latest Ubuntu Linux runner
+
+#     steps:
+#     - name: Checkout Repository
+#       uses: actions/checkout@v4 # Action to get your code from the repository
+
+#     - name: Set up Java
+#       uses: actions/setup-java@v4
+#       with:
+#         java-version: '11' # Match this to the `maven.compiler.target` in your pom.xml
+#         distribution: 'temurin'
+#         cache: 'maven' # Caches Maven dependencies for faster builds
+
+#     - name: Install Google Chrome and ChromeDriver
+#       # This action automatically installs the correct Linux Chrome and Chromedriver
+#       # and ensures chromedriver is on the PATH for Selenium.
+#       uses: browser-actions/setup-chrome@latest
+#       with:
+#         chrome-version: 'stable' # Or a specific version like '120.0.6099.109'
+
+#     - name: Run Selenium Script to Fetch Cookies
+#       id: run_selenium # Assign an ID to this step to reference its output
+#       env:
+#         # Pass sensitive data as environment variables to your Java code
+#         # These secrets must be configured in your GitHub repository settings.
+#         TARGET_URL: ${{ secrets.TARGET_URL }}
+#         LOGIN_USERNAME: ${{ secrets.LOGIN_USERNAME }}
+#         LOGIN_PASSWORD: ${{ secrets.LOGIN_PASSWORD }}
+#       run: |
+#         echo "Building and running Maven project..."
+#         # Create a directory for screenshots to be saved by the Java application
+#         mkdir -p screenshots
+
+#         # Maven command to clean, compile, and execute your Main class.
+#         # '2>&1 | tee /dev/stderr' ensures that all output (stdout and stderr)
+#         # is printed to stderr (which GitHub Actions captures in the log)
+#         # while also allowing 'awk' to process the output for the specific cookie string.
+#         # We capture the exit code to ensure the step fails if the Java app fails.
+#         COOKIES_STRING=$(mvn -B clean compile exec:java 2>&1 | tee /dev/stderr | awk '/^([a-zA-Z0-9_]+=.*(; )?)+$/{print; exit}')
+#         exit_code=$? # Capture the exit code of the mvn command
+
+#         # Check if the Maven command itself failed
+#         if [ $exit_code -ne 0 ]; then
+#           echo "ERROR: Maven command failed with exit code $exit_code. Review logs for Java errors."
+#           exit $exit_code # Fail this step with the original exit code
+#         fi
+
+#         # Check if the COOKIES_STRING was captured (meaning the Java script successfully printed cookies)
+#         if [ -z "$COOKIES_STRING" ]; then
+#           echo "WARNING: No cookie string output captured from Selenium script. This might be expected if the script failed before printing cookies, or if the output format changed."
+#           # Do not exit here; allow the artifact upload step to still run if screenshots were taken
+#         else
+#           # Set the captured cookie string as an output for subsequent steps to use
+#           echo "::set-output name=cookies::${COOKIES_STRING}"
+#           echo "Selenium script executed. Captured cookies."
+#         fi
+
+#     - name: Upload Screenshots (for debugging)
+#       # This step will always run, even if previous steps failed,
+#       # ensuring you get debugging information (screenshots) in case of an error.
+#       if: always()
+#       uses: actions/upload-artifact@v4
+#       with:
+#         name: selenium-screenshots # The name of the artifact bundle
+#         path: screenshots/ # The path to the directory where screenshots are saved
+#         retention-days: 5 # How long to keep the artifacts (adjust as needed)
+
+#     - name: Send Cookies to SAP Integration Suite
+#       # This step will only run if the 'run_selenium' step succeeded
+#       # AND if the 'cookies' output from that step is not empty.
+#       if: success() && steps.run_selenium.outputs.cookies != ''
+#       run: |
+#         # Retrieve SAP IS endpoint and credentials from GitHub Secrets
+#         SAP_IS_ENDPOINT="${{ secrets.SAP_IS_ENDPOINT }}"
+#         SAP_IS_USERNAME="${{ secrets.SAP_IS_USERNAME }}"
+#         SAP_IS_PASSWORD="${{ secrets.SAP_IS_PASSWORD }}"
+
+#         # Get the cookies payload captured from the previous step
+#         COOKIES_PAYLOAD="${{ steps.run_selenium.outputs.cookies }}"
+
+#         echo "Sending cookies to SAP Integration Suite endpoint: ${SAP_IS_ENDPOINT}"
+#         # Use curl to send the cookies.
+#         # Ensure your SAP IS endpoint is configured to accept POST requests
+#         # with Content-Type: application/json and Basic Authentication.
+#         curl -X POST \
+#              -H "Content-Type: application/json" \
+#              -u "${SAP_IS_USERNAME}:${SAP_IS_PASSWORD}" \
+#              --data-raw "${COOKIES_PAYLOAD}" \
+#              "${SAP_IS_ENDPOINT}"
+
+#         echo "Successfully sent cookies to SAP Integration Suite."
+#       env: # Ensure secrets are available to this step's run environment as well
+#         SAP_IS_ENDPOINT: ${{ secrets.SAP_IS_ENDPOINT }}
+#         SAP_IS_USERNAME: ${{ secrets.SAP_IS_USERNAME }}
+#         SAP_IS_PASSWORD: ${{ secrets.SAP_IS_PASSWORD }}
+
+name: Fetch SAP Integration Suite Cookies
 
 on:
+  schedule:
+    - cron: '0 0 * * *' # Run daily at midnight UTC. Adjust as needed.
   workflow_dispatch: # Allows manual triggering from GitHub UI
-  # schedule:
-  #   - cron: '0 * * * *' # Example: Run every hour at minute 0 (adjust frequency as needed)
 
 jobs:
-  fetch-cookies:
-    runs-on: ubuntu-latest # Use the latest Ubuntu Linux runner
+  fetch-and-send-cookies:
+    runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v4 # Action to get your code from the repository
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-    - name: Set up Java
-      uses: actions/setup-java@v4
-      with:
-        java-version: '11' # Match this to the `maven.compiler.target` in your pom.xml
-        distribution: 'temurin'
-        cache: 'maven' # Caches Maven dependencies for faster builds
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: '11' # Match this to the maven.compiler.target in your pom.xml
+          distribution: 'temurin'
+          cache: 'maven'
 
-    - name: Install Google Chrome and ChromeDriver
-      # This action automatically installs the correct Linux Chrome and Chromedriver
-      # and ensures chromedriver is on the PATH for Selenium.
-      uses: browser-actions/setup-chrome@latest
-      with:
-        chrome-version: 'stable' # Or a specific version like '120.0.6099.109'
+      - name: Install Google Chrome and ChromeDriver
+        uses: browser-actions/setup-chrome@latest
+        with:
+          chrome-version: 'stable'
 
-    - name: Run Selenium Script to Fetch Cookies
-      id: run_selenium # Assign an ID to this step to reference its output
-      env:
-        # Pass sensitive data as environment variables to your Java code
-        # These secrets must be configured in your GitHub repository settings.
-        TARGET_URL: ${{ secrets.TARGET_URL }}
-        LOGIN_USERNAME: ${{ secrets.LOGIN_USERNAME }}
-        LOGIN_PASSWORD: ${{ secrets.LOGIN_PASSWORD }}
-      run: |
-        echo "Building and running Maven project..."
-        # Create a directory for screenshots to be saved by the Java application
-        mkdir -p screenshots
+      - name: Create screenshots directory
+        run: mkdir -p screenshots
 
-        # Maven command to clean, compile, and execute your Main class.
-        # '2>&1 | tee /dev/stderr' ensures that all output (stdout and stderr)
-        # is printed to stderr (which GitHub Actions captures in the log)
-        # while also allowing 'awk' to process the output for the specific cookie string.
-        # We capture the exit code to ensure the step fails if the Java app fails.
-        COOKIES_STRING=$(mvn -B clean compile exec:java 2>&1 | tee /dev/stderr | awk '/^([a-zA-Z0-9_]+=.*(; )?)+$/{print; exit}')
-        exit_code=$? # Capture the exit code of the mvn command
+      # --- Fetch Cookies for DEV Tenant ---
+      - name: Run Selenium for DEV Tenant
+        id: dev_selenium
+        env:
+          TARGET_URL: ${{ secrets.DEV_URL }}
+          LOGIN_USERNAME: ${{ secrets.LOGIN_USERNAME }} # Re-using single secret
+          LOGIN_PASSWORD: ${{ secrets.LOGIN_PASSWORD }} # Re-using single secret
+        run: |
+          echo "Fetching cookies for DEV tenant..."
+          DEV_COOKIES=$(mvn -B clean compile exec:java 2>&1 | tee /dev/stderr | grep -E '^([a-zA-Z0-9_\-]+=.*(; )?)+$')
 
-        # Check if the Maven command itself failed
-        if [ $exit_code -ne 0 ]; then
-          echo "ERROR: Maven command failed with exit code $exit_code. Review logs for Java errors."
-          exit $exit_code # Fail this step with the original exit code
-        fi
+          if [ -z "$DEV_COOKIES" ]; then
+            echo "::error::DEV_COOKIES environment variable is empty. Selenium login might have failed for DEV."
+            exit 1
+          fi
+          echo "DEV_COOKIES captured." # Avoid logging full cookie string directly for security
+          echo "::set-output name=cookies::${DEV_COOKIES}"
 
-        # Check if the COOKIES_STRING was captured (meaning the Java script successfully printed cookies)
-        if [ -z "$COOKIES_STRING" ]; then
-          echo "WARNING: No cookie string output captured from Selenium script. This might be expected if the script failed before printing cookies, or if the output format changed."
-          # Do not exit here; allow the artifact upload step to still run if screenshots were taken
-        else
-          # Set the captured cookie string as an output for subsequent steps to use
-          echo "::set-output name=cookies::${COOKIES_STRING}"
-          echo "Selenium script executed. Captured cookies."
-        fi
+      # --- Fetch Cookies for UAT/ENT Tenant ---
+      - name: Run Selenium for UAT/ENT Tenant
+        id: uat_selenium
+        env:
+          TARGET_URL: ${{ secrets.UAT_URL }}
+          LOGIN_USERNAME: ${{ secrets.LOGIN_USERNAME }} # Re-using single secret
+          LOGIN_PASSWORD: ${{ secrets.LOGIN_PASSWORD }} # Re-using single secret
+        run: |
+          echo "Fetching cookies for UAT/ENT tenant..."
+          UAT_COOKIES=$(mvn -B clean compile exec:java 2>&1 | tee /dev/stderr | grep -E '^([a-zA-Z0-9_\-]+=.*(; )?)+$')
 
-    - name: Upload Screenshots (for debugging)
-      # This step will always run, even if previous steps failed,
-      # ensuring you get debugging information (screenshots) in case of an error.
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: selenium-screenshots # The name of the artifact bundle
-        path: screenshots/ # The path to the directory where screenshots are saved
-        retention-days: 5 # How long to keep the artifacts (adjust as needed)
+          if [ -z "$UAT_COOKIES" ]; then
+            echo "::error::UAT_COOKIES environment variable is empty. Selenium login might have failed for UAT/ENT."
+            exit 1
+          fi
+          echo "UAT_COOKIES captured."
+          echo "::set-output name=cookies::${UAT_COOKIES}"
 
-    - name: Send Cookies to SAP Integration Suite
-      # This step will only run if the 'run_selenium' step succeeded
-      # AND if the 'cookies' output from that step is not empty.
-      if: success() && steps.run_selenium.outputs.cookies != ''
-      run: |
-        # Retrieve SAP IS endpoint and credentials from GitHub Secrets
-        SAP_IS_ENDPOINT="${{ secrets.SAP_IS_ENDPOINT }}"
-        SAP_IS_USERNAME="${{ secrets.SAP_IS_USERNAME }}"
-        SAP_IS_PASSWORD="${{ secrets.SAP_IS_PASSWORD }}"
+      # --- Fetch Cookies for PROD Tenant ---
+      - name: Run Selenium for PROD Tenant
+        id: prod_selenium
+        env:
+          TARGET_URL: ${{ secrets.PROD_URL }}
+          LOGIN_USERNAME: ${{ secrets.LOGIN_USERNAME }} # Re-using single secret
+          LOGIN_PASSWORD: ${{ secrets.LOGIN_PASSWORD }} # Re-using single secret
+        run: |
+          echo "Fetching cookies for PROD tenant..."
+          PROD_COOKIES=$(mvn -B clean compile exec:java 2>&1 | tee /dev/stderr | grep -E '^([a-zA-Z0-9_\-]+=.*(; )?)+$')
 
-        # Get the cookies payload captured from the previous step
-        COOKIES_PAYLOAD="${{ steps.run_selenium.outputs.cookies }}"
+          if [ -z "$PROD_COOKIES" ]; then
+            echo "::error::PROD_COOKIES environment variable is empty. Selenium login might have failed for PROD."
+            exit 1
+          fi
+          echo "PROD_COOKIES captured."
+          echo "::set-output name=cookies::${PROD_COOKIES}"
 
-        echo "Sending cookies to SAP Integration Suite endpoint: ${SAP_IS_ENDPOINT}"
-        # Use curl to send the cookies.
-        # Ensure your SAP IS endpoint is configured to accept POST requests
-        # with Content-Type: application/json and Basic Authentication.
-        curl -X POST \
-             -H "Content-Type: application/json" \
-             -u "${SAP_IS_USERNAME}:${SAP_IS_PASSWORD}" \
-             --data-raw "${COOKIES_PAYLOAD}" \
-             "${SAP_IS_ENDPOINT}"
+      - name: Upload Screenshots (for debugging)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: selenium-screenshots
+          path: screenshots/
+          retention-days: 7
 
-        echo "Successfully sent cookies to SAP Integration Suite."
-      env: # Ensure secrets are available to this step's run environment as well
-        SAP_IS_ENDPOINT: ${{ secrets.SAP_IS_ENDPOINT }}
-        SAP_IS_USERNAME: ${{ secrets.SAP_IS_USERNAME }}
-        SAP_IS_PASSWORD: ${{ secrets.SAP_IS_PASSWORD }}
+      - name: Send All Cookies to SAP Integration Suite
+        if: success()
+        run: |
+          SAP_IS_ENDPOINT="${{ secrets.SAP_IS_ENDPOINT }}"
+          SAP_IS_USERNAME="${{ secrets.SAP_IS_USERNAME }}"
+          SAP_IS_PASSWORD="${{ secrets.SAP_IS_PASSWORD }}"
+
+          XML_PAYLOAD="<TenantCookies>
+            <Tenant name=\"DEV\">
+              <CookieString>$(echo "${{ steps.dev_selenium.outputs.cookies }}" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g; s/'"'"'/\&apos;/g')</CookieString>
+            </Tenant>
+            <Tenant name=\"UAT\">
+              <CookieString>$(echo "${{ steps.uat_selenium.outputs.cookies }}" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g; s/'"'"'/\&apos;/g')</CookieString>
+            </Tenant>
+            <Tenant name=\"PROD\">
+              <CookieString>$(echo "${{ steps.prod_selenium.outputs.cookies }}" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g; s/'"'"'/\&apos;/g')</CookieString>
+            </Tenant>
+          </TenantCookies>"
+
+          echo "Sending cookies payload to SAP Integration Suite..."
+          curl -X POST \
+               -H "Content-Type: application/xml" \
+               -u "${SAP_IS_USERNAME}:${SAP_IS_PASSWORD}" \
+               --data-raw "${XML_PAYLOAD}" \
+               "${SAP_IS_ENDPOINT}"
+
+          echo "Successfully sent cookies payload to SAP Integration Suite."
