@@ -134,14 +134,14 @@ jobs:
         run: mkdir -p screenshots
 
       # --- Fetch Cookies for DEV Tenant ---
-      - name: Run Selenium for DEV Tenant
+      - name: Run Selenium for DEV Enviroment(ENT Tenant)
         id: dev_selenium
         env:
           TARGET_URL: ${{ secrets.DEV_URL }}
           LOGIN_USERNAME: ${{ secrets.LOGIN_USERNAME }} # Re-using single secret
           LOGIN_PASSWORD: ${{ secrets.LOGIN_PASSWORD }} # Re-using single secret
         run: |
-          echo "Fetching cookies for DEV tenant..."
+          echo "Fetching cookies for DEV environment (ENT Tenant)..."
           DEV_COOKIES=$(mvn -B clean compile exec:java 2>&1 | tee /dev/stderr | grep -E '^([a-zA-Z0-9_\-]+=.*(; )?)+$')
 
           if [ -z "$DEV_COOKIES" ]; then
@@ -152,7 +152,7 @@ jobs:
           echo "::set-output name=cookies::${DEV_COOKIES}"
 
       # --- Fetch Cookies for UAT/ENT Tenant ---
-      - name: Run Selenium for UAT/ENT Tenant
+      - name: Run Selenium for UAT Enviroment(DEV Tenant)
         id: uat_selenium
         env:
           TARGET_URL: ${{ secrets.UAT_URL }}
@@ -170,7 +170,7 @@ jobs:
           echo "::set-output name=cookies::${UAT_COOKIES}"
 
       # --- Fetch Cookies for PROD Tenant ---
-      - name: Run Selenium for PROD Tenant
+      - name: Run Selenium for PROD Enviroment (PROD Tenant)
         id: prod_selenium
         env:
           TARGET_URL: ${{ secrets.PROD_URL }}
