@@ -203,17 +203,16 @@ jobs:
           SAP_IS_PASSWORD="${{ secrets.SAP_IS_PASSWORD }}"
 
           XML_PAYLOAD="<TenantCookies>
-            <Tenant name="DEV">
-              <CookieString>$(echo "${{ steps.dev_selenium.outputs.cookies }}" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g; s/'"'"'/\&apos;/g')</CookieString>
+            <Tenant name=\"DEV\">  # <--- MUST HAVE BACKSLASHES HERE
+              <CookieString>$(echo "JSESSIONID=s%3ATdMJN0olYxUuIFvbAPEPMPbiCG3gStO7.dt3LjJhPeOykHCIuus8k%2FTaRdAXDc7ZvQIXV21id6oc; __VCAP_ID__=f25a14eb-983a-4b25-7818-9803" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g; s/'"'"'/\&apos;/g')</CookieString>
             </Tenant>
-            <Tenant name="UAT">
-              <CookieString>$(echo "${{ steps.uat_selenium.outputs.cookies }}" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g; s/'"'"'/\&apos;/g')</CookieString>
+            <Tenant name=\"UAT\"> # <--- AND HERE
+              <CookieString>$(echo "JSESSIONID=s%3AajagwPeyCaA6twJtop_A_KP-voio_gHA.XQ9NunvRnOs%2BZ3fVcWMz%2BOPl%2BFANqZjrAjRZDeVg1vI; __VCAP_ID__=f25a14eb-983a-4b25-7818-9803" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g; s/'"'"'/\&apos;/g')</CookieString>
             </Tenant>
-            <Tenant name="PROD">
-              <CookieString>$(echo "${{ steps.prod_selenium.outputs.cookies }}" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g; s/'"'"'/\&apos;/g')</CookieString>
+            <Tenant name=\"PROD\"> # <--- AND HERE
+              <CookieString>$(echo "JSESSIONID=s%3AQlk6h81A0adE09w0mp-gbp34Sb-W1Ajd.C3pW5q4neOaFO22WXo0P1esqCik9VdNfqXBScLVRc7w; __VCAP_ID__=5481c7e8-ca78-4005-6fde-0f6c" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g; s/'"'"'/\&apos;/g')</CookieString>
             </Tenant>
           </TenantCookies>"
-
           echo "Sending cookies payload to SAP Integration Suite..."
           curl -X POST \
                -H "Content-Type: application/xml" \
