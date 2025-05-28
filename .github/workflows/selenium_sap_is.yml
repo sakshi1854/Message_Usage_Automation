@@ -130,8 +130,8 @@ jobs:
         with:
           chrome-version: 'stable'
 
-      - name: Create screenshots directory
-        run: mkdir -p screenshots
+      # - name: Create screenshots directory
+      #   run: mkdir -p screenshots
 
       # --- Fetch Cookies for DEV Tenant ---
       - name: Run Selenium for DEV Enviroment(ENT Tenant)
@@ -152,48 +152,55 @@ jobs:
           echo "::set-output name=cookies::${DEV_COOKIES}"
 
       # --- Fetch Cookies for UAT/ENT Tenant ---
-      - name: Run Selenium for UAT Enviroment(DEV Tenant)
-        id: uat_selenium
-        env:
-          TARGET_URL: ${{ secrets.UAT_URL }}
-          LOGIN_USERNAME: ${{ secrets.LOGIN_USERNAME }} # Re-using single secret
-          LOGIN_PASSWORD: ${{ secrets.LOGIN_PASSWORD }} # Re-using single secret
-        run: |
-          echo "Fetching cookies for UAT/ENT tenant..."
-          UAT_COOKIES=$(mvn -B clean compile exec:java 2>&1 | tee /dev/stderr | grep -E '^([a-zA-Z0-9_\-]+=.*(; )?)+$')
+      # - name: Run Selenium for UAT Enviroment(DEV Tenant)
+      #   id: uat_selenium
+      #   env:
+      #     TARGET_URL: ${{ secrets.UAT_URL }}
+      #     LOGIN_USERNAME: ${{ secrets.LOGIN_USERNAME }} # Re-using single secret
+      #     LOGIN_PASSWORD: ${{ secrets.LOGIN_PASSWORD }} # Re-using single secret
+      #   run: |
+      #     echo "Fetching cookies for UAT/ENT tenant..."
+      #     UAT_COOKIES=$(mvn -B clean compile exec:java 2>&1 | tee /dev/stderr | grep -E '^([a-zA-Z0-9_\-]+=.*(; )?)+$')
 
-          if [ -z "$UAT_COOKIES" ]; then
-            echo "::error::UAT_COOKIES environment variable is empty. Selenium login might have failed for UAT/ENT."
-            exit 1
-          fi
-          echo "UAT_COOKIES captured."
-          echo "::set-output name=cookies::${UAT_COOKIES}"
+      #     if [ -z "$UAT_COOKIES" ]; then
+      #       echo "::error::UAT_COOKIES environment variable is empty. Selenium login might have failed for UAT/ENT."
+      #       exit 1
+      #     fi
+      #     echo "UAT_COOKIES captured."
+      #     echo "::set-output name=cookies::${UAT_COOKIES}"
 
       # --- Fetch Cookies for PROD Tenant ---
-      - name: Run Selenium for PROD Enviroment (PROD Tenant)
-        id: prod_selenium
-        env:
-          TARGET_URL: ${{ secrets.PROD_URL }}
-          LOGIN_USERNAME: ${{ secrets.LOGIN_USERNAME }} # Re-using single secret
-          LOGIN_PASSWORD: ${{ secrets.LOGIN_PASSWORD }} # Re-using single secret
-        run: |
-          echo "Fetching cookies for PROD tenant..."
-          PROD_COOKIES=$(mvn -B clean compile exec:java 2>&1 | tee /dev/stderr | grep -E '^([a-zA-Z0-9_\-]+=.*(; )?)+$')
+      # - name: Run Selenium for PROD Enviroment (PROD Tenant)
+      #   id: prod_selenium
+      #   env:
+      #     TARGET_URL: ${{ secrets.PROD_URL }}
+      #     LOGIN_USERNAME: ${{ secrets.LOGIN_USERNAME }} # Re-using single secret
+      #     LOGIN_PASSWORD: ${{ secrets.LOGIN_PASSWORD }} # Re-using single secret
+      #   run: |
+      #     echo "Fetching cookies for PROD tenant..."
+      #     PROD_COOKIES=$(mvn -B clean compile exec:java 2>&1 | tee /dev/stderr | grep -E '^([a-zA-Z0-9_\-]+=.*(; )?)+$')
 
-          if [ -z "$PROD_COOKIES" ]; then
-            echo "::error::PROD_COOKIES environment variable is empty. Selenium login might have failed for PROD."
-            exit 1
-          fi
-          echo "PROD_COOKIES captured."
-          echo "::set-output name=cookies::${PROD_COOKIES}"
+      #     if [ -z "$PROD_COOKIES" ]; then
+      #       echo "::error::PROD_COOKIES environment variable is empty. Selenium login might have failed for PROD."
+      #       exit 1
+      #     fi
+      #     echo "PROD_COOKIES captured."
+      #     echo "::set-output name=cookies::${PROD_COOKIES}"
 
-      - name: Upload Screenshots (for debugging)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: selenium-screenshots
-          path: screenshots/
-          retention-days: 7
+      # - name: Upload Screenshots (for debugging)
+      #   if: always()
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: selenium-screenshots
+      #     path: screenshots/
+      #     retention-days: 7
+      
+             #   <Tenant name=\"UAT\">
+            #   <CookieString>$(echo "${{ steps.uat_selenium.outputs.cookies }}" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g; s/'"'"'/\&apos;/g')</CookieString>
+            # </Tenant>
+            # <Tenant name=\"PROD\">
+            #   <CookieString>$(echo "${{ steps.prod_selenium.outputs.cookies }}" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g; s/'"'"'/\&apos;/g')</CookieString>
+            # </Tenant>
 
       - name: Send All Cookies to SAP Integration Suite
         if: success()
@@ -206,13 +213,10 @@ jobs:
             <Tenant name=\"DEV\">
               <CookieString>$(echo "${{ steps.dev_selenium.outputs.cookies }}" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g; s/'"'"'/\&apos;/g')</CookieString>
             </Tenant>
-            <Tenant name=\"UAT\">
-              <CookieString>$(echo "${{ steps.uat_selenium.outputs.cookies }}" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g; s/'"'"'/\&apos;/g')</CookieString>
-            </Tenant>
-            <Tenant name=\"PROD\">
-              <CookieString>$(echo "${{ steps.prod_selenium.outputs.cookies }}" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g; s/'"'"'/\&apos;/g')</CookieString>
-            </Tenant>
+
           </TenantCookies>"
+
+
 
           echo "Sending cookies payload to SAP Integration Suite..."
           curl -X POST \
