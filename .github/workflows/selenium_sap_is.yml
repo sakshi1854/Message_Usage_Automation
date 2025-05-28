@@ -203,13 +203,13 @@ jobs:
           SAP_IS_PASSWORD="${{ secrets.SAP_IS_PASSWORD }}"
 
           XML_PAYLOAD="<TenantCookies>
-            <Tenant name=\"DEV\">
+            <Tenant name="DEV">
               <CookieString>$(echo "${{ steps.dev_selenium.outputs.cookies }}" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g; s/'"'"'/\&apos;/g')</CookieString>
             </Tenant>
-            <Tenant name=\"UAT\">
+            <Tenant name="UAT">
               <CookieString>$(echo "${{ steps.uat_selenium.outputs.cookies }}" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g; s/'"'"'/\&apos;/g')</CookieString>
             </Tenant>
-            <Tenant name=\"PROD\">
+            <Tenant name="PROD">
               <CookieString>$(echo "${{ steps.prod_selenium.outputs.cookies }}" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g; s/'"'"'/\&apos;/g')</CookieString>
             </Tenant>
           </TenantCookies>"
