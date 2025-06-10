@@ -103,12 +103,146 @@
 #         SAP_IS_USERNAME: ${{ secrets.SAP_IS_USERNAME }}
 #         SAP_IS_PASSWORD: ${{ secrets.SAP_IS_PASSWORD }}
 
+
+
+
+# name: Fetch SAP Integration Suite Cookies
+
+# on:
+#   schedule:
+#     - cron: '0 0 * * *' # Run daily at midnight UTC. Adjust as needed.
+#   workflow_dispatch: # Allows manual triggering from GitHub UI
+
+# jobs:
+#   fetch-and-send-cookies:
+#     runs-on: ubuntu-latest
+
+#     steps:
+#       - name: Checkout Repository
+#         uses: actions/checkout@v4
+
+#       - name: Set up Java
+#         uses: actions/setup-java@v4
+#         with:
+#           java-version: '11' # Match this to the maven.compiler.target in your pom.xml
+#           distribution: 'temurin'
+#           cache: 'maven'
+
+#       - name: Install Google Chrome and ChromeDriver
+#         uses: browser-actions/setup-chrome@latest
+#         with:
+#           chrome-version: 'stable'
+
+#       - name: Create screenshots directory
+#         run: mkdir -p screenshots
+
+#       # --- Fetch Cookies for DEV Tenant ---
+#       - name: Run Selenium for DEV Enviroment(ENT Tenant)
+#         id: dev_selenium
+#         env:
+#           TARGET_URL: ${{ secrets.DEV_URL }}
+#           LOGIN_USERNAME: ${{ secrets.LOGIN_USERNAME }} # Re-using single secret
+#           LOGIN_PASSWORD: ${{ secrets.LOGIN_PASSWORD }} # Re-using single secret
+#         run: |
+#           echo "Fetching cookies for DEV environment (ENT Tenant)..."
+#           DEV_COOKIES=$(mvn -B clean compile exec:java 2>&1 | tee /dev/stderr | grep -E '^([a-zA-Z0-9_\-]+=.*(; )?)+$')
+
+#           if [ -z "$DEV_COOKIES" ]; then
+#             echo "::error::DEV_COOKIES environment variable is empty. Selenium login might have failed for DEV."
+#             exit 1
+#           fi
+#           echo "DEV_COOKIES captured." # Avoid logging full cookie string directly for security
+#           echo "::set-output name=cookies::${DEV_COOKIES}"
+
+#       # --- Fetch Cookies for UAT Tenant ---
+#       - name: Run Selenium for UAT Enviroment(DEV Tenant)
+#         id: uat_selenium
+#         env:
+#           TARGET_URL: ${{ secrets.UAT_URL }}
+#           LOGIN_USERNAME: ${{ secrets.LOGIN_USERNAME }} # Re-using single secret
+#           LOGIN_PASSWORD: ${{ secrets.LOGIN_PASSWORD }} # Re-using single secret
+#         run: |
+#           echo "Fetching cookies for UAT/ENT tenant..."
+#           UAT_COOKIES=$(mvn -B clean compile exec:java 2>&1 | tee /dev/stderr | grep -E '^([a-zA-Z0-9_\-]+=.*(; )?)+$')
+
+#           if [ -z "$UAT_COOKIES" ]; then
+#             echo "::error::UAT_COOKIES environment variable is empty. Selenium login might have failed for UAT/ENT."
+#             exit 1
+#           fi
+#           echo "UAT_COOKIES captured."
+#           echo "::set-output name=cookies::${UAT_COOKIES}"
+
+#       # --- Fetch Cookies for PROD Tenant ---
+#       - name: Run Selenium for PROD Enviroment (PROD Tenant)
+#         id: prod_selenium
+#         env:
+#           TARGET_URL: ${{ secrets.PROD_URL }}
+#           LOGIN_USERNAME: ${{ secrets.LOGIN_USERNAME }} # Re-using single secret
+#           LOGIN_PASSWORD: ${{ secrets.LOGIN_PASSWORD }} # Re-using single secret
+#         run: |
+#           echo "Fetching cookies for PROD tenant..."
+#           PROD_COOKIES=$(mvn -B clean compile exec:java 2>&1 | tee /dev/stderr | grep -E '^([a-zA-Z0-9_\-]+=.*(; )?)+$')
+
+#           if [ -z "$PROD_COOKIES" ]; then
+#             echo "::error::PROD_COOKIES environment variable is empty. Selenium login might have failed for PROD."
+#             exit 1
+#           fi
+#           echo "PROD_COOKIES captured."
+#           echo "::set-output name=cookies::${PROD_COOKIES}"
+
+#       - name: Upload Screenshots (for debugging)
+#         if: always()
+#         uses: actions/upload-artifact@v4
+#         with:
+#           name: selenium-screenshots
+#           path: screenshots/
+#           retention-days: 7
+      
+
+
+#       - name: Send All Cookies to SAP Integration Suite
+#         if: success()
+#         run: |
+#           SAP_IS_ENDPOINT="${{ secrets.SAP_IS_ENDPOINT }}"
+#           SAP_IS_USERNAME="${{ secrets.SAP_IS_USERNAME }}"
+#           SAP_IS_PASSWORD="${{ secrets.SAP_IS_PASSWORD }}"
+
+#           XML_PAYLOAD="<TenantCookies>
+#             <Tenant name=\"DEV\">
+#               <CookieString>$(echo "${{ steps.dev_selenium.outputs.cookies }}" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g; s/'"'"'/\&apos;/g')</CookieString>
+#             </Tenant>
+
+#             <Tenant name=\"UAT\">
+#               <CookieString>$(echo "${{ steps.uat_selenium.outputs.cookies }}" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g; s/'"'"'/\&apos;/g')</CookieString>
+#             </Tenant>
+#             <Tenant name=\"PROD\">
+#               <CookieString>$(echo "${{ steps.prod_selenium.outputs.cookies }}" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g; s/'"'"'/\&apos;/g')</CookieString>
+#             </Tenant>
+
+#           </TenantCookies>"
+
+
+
+#           echo "Sending cookies payload to SAP Integration Suite..."
+#           curl -X POST \
+#                -H "Content-Type: application/xml" \
+#                -u "${SAP_IS_USERNAME}:${SAP_IS_PASSWORD}" \
+#                --data-raw "${XML_PAYLOAD}" \
+#                "${SAP_IS_ENDPOINT}"
+
+#           echo "Successfully sent cookies payload to SAP Integration Suite."
+
+
+
+
+
+
 name: Fetch SAP Integration Suite Cookies
 
 on:
   schedule:
-    - cron: '0 0 * * *' # Run daily at midnight UTC. Adjust as needed.
-  workflow_dispatch: # Allows manual triggering from GitHub UI
+    - cron: '0 0 * * *'  # Runs daily at midnight UTC
+  workflow_dispatch:     # Manual trigger from GitHub UI
 
 jobs:
   fetch-and-send-cookies:
@@ -121,7 +255,7 @@ jobs:
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
-          java-version: '11' # Match this to the maven.compiler.target in your pom.xml
+          java-version: '11'
           distribution: 'temurin'
           cache: 'maven'
 
@@ -130,74 +264,56 @@ jobs:
         with:
           chrome-version: 'stable'
 
-      - name: Create screenshots directory
-        run: mkdir -p screenshots
-
-      # --- Fetch Cookies for DEV Tenant ---
-      - name: Run Selenium for DEV Enviroment(ENT Tenant)
+      # --- DEV Tenant ---
+      - name: Run Selenium for DEV Environment
         id: dev_selenium
         env:
           TARGET_URL: ${{ secrets.DEV_URL }}
-          LOGIN_USERNAME: ${{ secrets.LOGIN_USERNAME }} # Re-using single secret
-          LOGIN_PASSWORD: ${{ secrets.LOGIN_PASSWORD }} # Re-using single secret
+          LOGIN_USERNAME: ${{ secrets.LOGIN_USERNAME }}
+          LOGIN_PASSWORD: ${{ secrets.LOGIN_PASSWORD }}
         run: |
-          echo "Fetching cookies for DEV environment (ENT Tenant)..."
+          echo "Fetching cookies for DEV..."
           DEV_COOKIES=$(mvn -B clean compile exec:java 2>&1 | tee /dev/stderr | grep -E '^([a-zA-Z0-9_\-]+=.*(; )?)+$')
-
           if [ -z "$DEV_COOKIES" ]; then
-            echo "::error::DEV_COOKIES environment variable is empty. Selenium login might have failed for DEV."
+            echo "::error::DEV Selenium login failed."
             exit 1
           fi
-          echo "DEV_COOKIES captured." # Avoid logging full cookie string directly for security
           echo "::set-output name=cookies::${DEV_COOKIES}"
 
-      # --- Fetch Cookies for UAT Tenant ---
-      - name: Run Selenium for UAT Enviroment(DEV Tenant)
+      # --- UAT Tenant ---
+      - name: Run Selenium for UAT Environment
         id: uat_selenium
         env:
           TARGET_URL: ${{ secrets.UAT_URL }}
-          LOGIN_USERNAME: ${{ secrets.LOGIN_USERNAME }} # Re-using single secret
-          LOGIN_PASSWORD: ${{ secrets.LOGIN_PASSWORD }} # Re-using single secret
+          LOGIN_USERNAME: ${{ secrets.LOGIN_USERNAME }}
+          LOGIN_PASSWORD: ${{ secrets.LOGIN_PASSWORD }}
         run: |
-          echo "Fetching cookies for UAT/ENT tenant..."
+          echo "Fetching cookies for UAT..."
           UAT_COOKIES=$(mvn -B clean compile exec:java 2>&1 | tee /dev/stderr | grep -E '^([a-zA-Z0-9_\-]+=.*(; )?)+$')
-
           if [ -z "$UAT_COOKIES" ]; then
-            echo "::error::UAT_COOKIES environment variable is empty. Selenium login might have failed for UAT/ENT."
+            echo "::error::UAT Selenium login failed."
             exit 1
           fi
-          echo "UAT_COOKIES captured."
           echo "::set-output name=cookies::${UAT_COOKIES}"
 
-      # --- Fetch Cookies for PROD Tenant ---
-      - name: Run Selenium for PROD Enviroment (PROD Tenant)
+      # --- PROD Tenant ---
+      - name: Run Selenium for PROD Environment
         id: prod_selenium
         env:
           TARGET_URL: ${{ secrets.PROD_URL }}
-          LOGIN_USERNAME: ${{ secrets.LOGIN_USERNAME }} # Re-using single secret
-          LOGIN_PASSWORD: ${{ secrets.LOGIN_PASSWORD }} # Re-using single secret
+          LOGIN_USERNAME: ${{ secrets.LOGIN_USERNAME }}
+          LOGIN_PASSWORD: ${{ secrets.LOGIN_PASSWORD }}
         run: |
-          echo "Fetching cookies for PROD tenant..."
+          echo "Fetching cookies for PROD..."
           PROD_COOKIES=$(mvn -B clean compile exec:java 2>&1 | tee /dev/stderr | grep -E '^([a-zA-Z0-9_\-]+=.*(; )?)+$')
-
           if [ -z "$PROD_COOKIES" ]; then
-            echo "::error::PROD_COOKIES environment variable is empty. Selenium login might have failed for PROD."
+            echo "::error::PROD Selenium login failed."
             exit 1
           fi
-          echo "PROD_COOKIES captured."
           echo "::set-output name=cookies::${PROD_COOKIES}"
 
-      - name: Upload Screenshots (for debugging)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: selenium-screenshots
-          path: screenshots/
-          retention-days: 7
-      
-
-
-      - name: Send All Cookies to SAP Integration Suite
+      # --- Send Cookies to SAP Integration Suite ---
+      - name: Send Cookies to SAP Integration Suite
         if: success()
         run: |
           SAP_IS_ENDPOINT="${{ secrets.SAP_IS_ENDPOINT }}"
@@ -208,23 +324,19 @@ jobs:
             <Tenant name=\"DEV\">
               <CookieString>$(echo "${{ steps.dev_selenium.outputs.cookies }}" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g; s/'"'"'/\&apos;/g')</CookieString>
             </Tenant>
-
             <Tenant name=\"UAT\">
               <CookieString>$(echo "${{ steps.uat_selenium.outputs.cookies }}" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g; s/'"'"'/\&apos;/g')</CookieString>
             </Tenant>
             <Tenant name=\"PROD\">
               <CookieString>$(echo "${{ steps.prod_selenium.outputs.cookies }}" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g; s/'"'"'/\&apos;/g')</CookieString>
             </Tenant>
-
           </TenantCookies>"
 
-
-
-          echo "Sending cookies payload to SAP Integration Suite..."
+          echo "Sending cookies payload..."
           curl -X POST \
                -H "Content-Type: application/xml" \
                -u "${SAP_IS_USERNAME}:${SAP_IS_PASSWORD}" \
                --data-raw "${XML_PAYLOAD}" \
                "${SAP_IS_ENDPOINT}"
 
-          echo "Successfully sent cookies payload to SAP Integration Suite."
+          echo "Cookies successfully sent."
