@@ -241,8 +241,8 @@ name: Fetch SAP Integration Suite Cookies
 
 on:
   schedule:
-    - cron: '0 0 * * *'  # Runs daily at midnight UTC
-  workflow_dispatch:     # Manual trigger from GitHub UI
+    - cron: '30 2 * * *'  # 8:00 AM IST = 2:30 AM UTC
+  workflow_dispatch:       # Manual trigger
 
 jobs:
   fetch-and-send-cookies:
