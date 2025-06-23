@@ -3,7 +3,8 @@ name: Fetch SAP Integration Suite Cookies
 
 on:
   schedule:
-    - cron: '30 2 * * *'  # 8:00 AM IST = 2:30 AM UTC
+    # - cron: '30 2 * * *'  # 8:00 AM IST = 2:30 AM UTC
+    cron: '20 4 * * *'  # 9:50 AM IST (buffered)
   workflow_dispatch:       # Manual trigger
 
 jobs:
