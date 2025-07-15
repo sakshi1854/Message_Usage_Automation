@@ -4,7 +4,7 @@ name: Fetch SAP Integration Suite Cookies
 on:
   schedule:
     # - cron: '30 2 * * *'  # 8:00 AM IST = 2:30 AM UTC
-    #- cron: '0 4 * * *'  # 9:30 AM IST = 4:0 AM UTC    (This is the original)
+    - cron: '0 4 * * *'  # 9:30 AM IST = 4:0 AM UTC    (This is the original)
     #- cron: '0 * * * *'  # This runs at 00:00 UTC = 5:30 AM IST
     # - cron: '45 6 * * *'  # ⏰ Dispatch Time: 11:50 AM IST (UTC+5:30)
 
